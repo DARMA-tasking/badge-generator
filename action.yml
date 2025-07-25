@@ -1,0 +1,81 @@
+name: 'Generate and Commit Badge to Wiki'
+description: 'Generates a status badge using shields.io and commits it to the repository wiki.'
+author: 'Darma-tasking'
+
+# Define the inputs the action will accept
+inputs:
+  name:
+    description: 'The label for the badge (e.g., the build target or job name). Should be URL-friendly.'
+    required: true
+  result:
+    description: 'The result of a previous step (e.g., success, failure, cancelled).'
+    required: true
+  github_token:
+    description: 'GitHub token with permissions to write to the wiki.'
+    required: true
+
+
+# Define the execution logic for the action
+runs:
+  using: 'composite'
+  steps:
+    - name: Determine Badge Color
+      id: set_color
+      shell: bash
+      run: |
+        case "${{ inputs.result }}" in
+          success)
+            echo "COLOR=green" >> $GITHUB_ENV
+            ;;
+          failure)
+            echo "COLOR=red" >> $GITHUB_ENV
+            ;;
+        esac
+
+    - name: Clone Wiki Repository
+      shell: bash
+      run: |
+        git clone https://x-access-token:${{ inputs.github_token }}@github.com/DARMA-tasking/badge-generator.wiki.git wiki
+
+    - name: Generate and Save Badge
+      shell: bash
+      run: |
+        # Sanitize the badge name to create a valid filename
+        # Replace spaces with hyphens and remove special characters
+        SANITIZED_NAME=$(echo "${{ inputs.name }}" | sed -e 's/ /-/g' -e 's/[^A-Za-z0-9._-]//g')
+        echo $SANITIZED_NAME
+        BADGE_FILENAME="${SANITIZED_NAME}-badge.svg"
+
+        ENCODED_NAME=$(echo "${{ inputs.name }}" | sed -e 's/ /%20/g' -e 's/-/_/g')
+        BADGE_URL="https://img.shields.io/badge/${ENCODED_NAME}-${{ inputs.result }}-${{ env.COLOR }}.svg"
+        echo $BADGE_URL
+
+        # Define the full path for the badge in the wiki
+        WIKI_BADGE_DIR="wiki/${{ inputs.badge_path }}"
+        mkdir -p "${WIKI_BADGE_DIR}"
+        WIKI_BADGE_PATH="${WIKI_BADGE_DIR}/${BADGE_FILENAME}"
+
+        echo "Saving badge to ${WIKI_BADGE_PATH}"
+
+        # Download the badge using curl
+        curl -s -o "${WIKI_BADGE_PATH}" "${BADGE_URL}"
+
+    - name: Commit and Push to Wiki
+      shell: bash
+      run: |
+        cd wiki
+
+        # Configure git user for the commit
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+        git add .
+
+        # Commit only if there are changes to prevent empty commits
+        if ! git diff --staged --quiet; then
+          git commit -m "Update badge for: ${{ inputs.name }}"
+          git push
+          echo "Badge updated and pushed to the wiki."
+        else
+          echo "No changes to the badge. Commit skipped."
+        fi
