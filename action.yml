@@ -45,7 +45,7 @@ runs:
         # Make sure we encode spaces and dashes
         # Shields.io URL format: https://img.shields.io/badge/<LABEL>-<MESSAGE>-<COLOR>
         # Any - in <MESSAGE> or <LABEL> must be escaped to %2D (URL encoding), otherwise Shields.io treats it as a delimiter.
-        ENCODED_NAME=$(echo "${{ inputs.name }}" | sed -e 's/-/%2D/g')
+        ENCODED_NAME=$(echo "${{ inputs.name }}" | sed -e 's/-/--/g')
         echo "ENCODED_NAME: $ENCODED_NAME"
 
         BADGE_URL="https://img.shields.io/badge/${ENCODED_NAME}-${{ inputs.result }}-${{ env.COLOR }}.svg"
