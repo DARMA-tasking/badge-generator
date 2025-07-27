@@ -1,4 +1,4 @@
-name: Generate Badge
+name: Generate Badges
 
 on:
   pull_request:
@@ -6,36 +6,7 @@ on:
 jobs:
   generate-badge:
     runs-on: ubuntu-latest
-    name: Generate Badge
-    strategy:
-      matrix:
-        image: ["vt-build-amd64-alpine-3-16-clang-cpp",
-                "vt-build-amd64-ubuntu-20-04-clang-10-cpp",
-                "vt-build-amd64-ubuntu-20-04-clang-9-cpp",
-                "vt-build-amd64-ubuntu-20-04-gcc-10-cpp",
-                "vt-build-amd64-ubuntu-20-04-gcc-10-openmpi-cpp",
-                "vt-build-amd64-ubuntu-20-04-gcc-9-cpp",
-                "vt-build-amd64-ubuntu-20-04-gcc-9-cuda-11-4-3-cpp",
-                "vt-build-amd64-ubuntu-20-04-gcc-9-cuda-12-2-0-cpp",
-                "vt-build-amd64-ubuntu-20-04-icpx-cpp",
-                "vt-build-amd64-ubuntu-22-04-clang-11-cpp",
-                "vt-build-amd64-ubuntu-22-04-clang-12-cpp",
-                "vt-build-amd64-ubuntu-22-04-clang-13-cpp",
-                "vt-build-amd64-ubuntu-22-04-clang-14-cpp",
-                "vt-build-amd64-ubuntu-22-04-clang-15-cpp",
-                "vt-build-amd64-ubuntu-22-04-gcc-11-cpp",
-                "vt-build-amd64-ubuntu-22-04-gcc-12-cpp",
-                "vt-build-amd64-ubuntu-22-04-gcc-12-vtk-cpp",
-                "vt-build-amd64-ubuntu-22-04-gcc-12-zoltan-cpp",
-                "vt-build-amd64-ubuntu-24-04-clang-16-cpp",
-                "vt-build-amd64-ubuntu-24-04-clang-16-vtk-cpp",
-                "vt-build-amd64-ubuntu-24-04-clang-16-zoltan-cpp",
-                "vt-build-amd64-ubuntu-24-04-clang-17-cpp",
-                "vt-build-amd64-ubuntu-24-04-clang-18-cpp",
-                "vt-build-amd64-ubuntu-24-04-gcc-13-cpp",
-                "vt-build-amd64-ubuntu-24-04-gcc-14-cpp",
-                "vt-build-amd64-ubuntu-20-04-gcc-10-openmpi-cpp-spack"]
-        result: ["success", "failure"]
+    name: Generate Badges
 
     steps:
       - uses: actions/checkout@v4
@@ -44,59 +15,71 @@ jobs:
         if: always()
         uses: DARMA-tasking/badge-generator@1-initial-version
         with:
-          name: ${{ matrix.image }}-${{ matrix.result }}
-          result: ${{ matrix.result }}
+          names: |
+            vt-build-amd64-alpine-3-16-clang-cpp
+            vt-build-amd64-ubuntu-20-04-gcc-9-cuda-12-2-0-cpp
+            vt-build-amd64-ubuntu-20-04-gcc-10-openmpi-cpp-spack
+            vt-build-amd64-ubuntu-22-04-gcc-12-cpp
+          results: |
+            success
+            cancelled
+            failure
+            failure
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
   comment-on-pr:
-    runs-on: ubuntu-latest
     needs: generate-badge
+    runs-on: ubuntu-latest
     if: always()
     steps:
-      - uses: actions/checkout@v4
-      - name: Update or add comment to pull request
+      - name: Clone wiki
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
         run: |
-          PREFIX_STRING="https://github.com/DARMA-tasking/badge-generator/wiki/"
+          git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.wiki.git" wiki
 
-          COMMENT_BODY="""
+      - name: Update or add PR comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR:       ${{ github.event.pull_request.number }}
+          REPO:     ${{ github.repository }}
+        run: |
+          set -euo pipefail
 
-          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/DARMA-tasking/badge-generator.wiki.git wiki
+          PREFIX="https://github.com/${REPO}/wiki/"
+          BADGE_DIR="wiki/${REPO}"
 
-          # List files in the directory and store in an array
-          mapfile -t FILE_ARRAY < <(ls -1 "badge-generator/${REPO}" 2>/dev/null || echo "")
+          COMMENT=""
 
-          # Append each file to COMMENT_BODY in the specified format
-          for FILE_NAME in "${FILE_ARRAY[@]}"; do
-            COMMENT_BODY+="![$PREFIX_STRING$FILE_NAME]()\n"
-          done
+          if [ -d "$BADGE_DIR" ]; then
+            for f in "$BADGE_DIR"/*.svg; do
+              [ -e "$f" ] || continue
+              FILE=$(basename "$f")
+              COMMENT+="![](${PREFIX}${FILE})\n"
+            done
+          fi
 
-          # Add identifier for comment tracking
-          COMMENT_BODY+="<!-- BadgeGeneratorComment -->"
+          COMMENT+="<!-- BadgeGeneratorComment -->"
 
-          # Get existing comments
-          COMMENTS=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-                          -H "Accept: application/vnd.github.v3+json" \
-                          https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments)
+          # escape newlines for JSON
+          JSON_BODY=$(printf '%s' "$COMMENT" | jq -Rs .)
 
-          # Check for existing comment with our identifier
-          COMMENT_ID=$(echo "$COMMENTS" | jq -r '.[] | select(.body | contains("<!-- BadgeGeneratorComment -->")) | .id')
+          COMMENTS=$(curl -s -H "Authorization: token $GH_TOKEN" \
+                           -H "Accept: application/vnd.github.v3+json" \
+                           "https://api.github.com/repos/${REPO}/issues/${PR}/comments")
 
-          if [ -n "$COMMENT_ID" ]; then
-            # Update existing comment
-            curl -s -H "Authorization: token $GITHUB_TOKEN" \
+          ID=$(echo "$COMMENTS" | jq -r '.[] | select(.body|contains("<!-- BadgeGeneratorComment -->")) | .id')
+
+          if [ -n "$ID" ]; then
+            curl -s -X PATCH \
+                 -H "Authorization: token $GH_TOKEN" \
                  -H "Accept: application/vnd.github.v3+json" \
-                 -X PATCH \
-                 -d "{\"body\": \"$COMMENT_BODY\"}" \
-                 https://api.github.com/repos/$REPO/issues/comments/$COMMENT_ID
+                 -d "{\"body\":$JSON_BODY}" \
+                 "https://api.github.com/repos/${REPO}/issues/comments/${ID}"
           else
-            # Create new comment
-            curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            curl -s -X POST \
+                 -H "Authorization: token $GH_TOKEN" \
                  -H "Accept: application/vnd.github.v3+json" \
-                 -X POST \
-                 -d "{\"body\": \"$COMMENT_BODY\"}" \
-                 https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments
+                 -d "{\"body\":$JSON_BODY}" \
+                 "https://api.github.com/repos/${REPO}/issues/${PR}/comments"
           fi
