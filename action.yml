@@ -40,25 +40,19 @@ runs:
     - name: Generate and Save Badge
       shell: bash
       run: |
-        # Sanitize the badge name to create a valid filename
-        # Replace spaces with hyphens and remove special characters
-        SANITIZED_NAME=$(echo "${{ inputs.name }}" | sed -e 's/ /-/g' -e 's/[^A-Za-z0-9._-]//g')
-        echo $SANITIZED_NAME
-        BADGE_FILENAME="${SANITIZED_NAME}-badge.svg"
+        set -x
 
-        ENCODED_NAME=$(echo "${{ inputs.name }}" | sed -e 's/ /%20/g' -e 's/-/%2D/g')
+        # Make sure we encode spaces and dashes
+        # Shields.io URL format: https://img.shields.io/badge/<LABEL>-<MESSAGE>-<COLOR>
+        # Any - in <MESSAGE> or <LABEL> must be escaped to %2D (URL encoding), otherwise Shields.io treats it as a delimiter.
+        ENCODED_NAME=$(echo "${{ inputs.name }}" | sed -e 's/-/%2D/g')
+        echo "ENCODED_NAME: $ENCODED_NAME"
+
         BADGE_URL="https://img.shields.io/badge/${ENCODED_NAME}-${{ inputs.result }}-${{ env.COLOR }}.svg"
-        echo $BADGE_URL
-
-        # Define the full path for the badge in the wiki
-        WIKI_BADGE_DIR="wiki/${{ inputs.badge_path }}"
-        mkdir -p "${WIKI_BADGE_DIR}"
-        WIKI_BADGE_PATH="${WIKI_BADGE_DIR}/${BADGE_FILENAME}"
-
-        echo "Saving badge to ${WIKI_BADGE_PATH}"
+        echo "BADGE_URL: $BADGE_URL"
 
         # Download the badge using curl
-        curl -s -o "${WIKI_BADGE_PATH}" "${BADGE_URL}"
+        curl -s -o "wiki/${{ inputs.name }}-badge.svg" "${BADGE_URL}"
 
     - name: Commit and Push to Wiki
       shell: bash
