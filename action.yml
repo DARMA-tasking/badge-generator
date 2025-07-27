@@ -15,7 +15,7 @@ inputs:
     required: true
   push:
     description: 'Whether to push to wiki repository or not'
-    default: false
+    default: true
 
 # Define the execution logic for the action
 runs:
@@ -30,8 +30,9 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        readarray -t NAMES   <<< "${{ inputs.names }}"
-        readarray -t RESULTS <<< "${{ inputs.results }}"
+        readarray -t NAMES   < <(printf '%s\n' "${{ inputs.names }}"   | sed '/^[[:space:]]*$/d')
+        readarray -t RESULTS < <(printf '%s\n' "${{ inputs.results }}" | sed '/^[[:space:]]*$/d')
+
 
         [ "${#NAMES[@]}" -eq "${#RESULTS[@]}" ] || { echo "names and results lengths differ" >&2; exit 1; }
 
@@ -44,18 +45,20 @@ runs:
           case "$RESULT" in
             success)   COLOR=green ;;
             failure)   COLOR=red   ;;
-            cancelled) COLOR=gray  ;;
-            *)         COLOR=gray  ;;
+            cancelled) COLOR=blue  ;;
+            *)         COLOR=blue  ;;
           esac
 
           ENCODED_NAME=$(echo "$NAME" | sed 's/-/--/g')
+          echo "NAME: $NAME"
           BADGE_URL="https://img.shields.io/badge/${ENCODED_NAME}-${RESULT}-${COLOR}.svg"
+          echo "BADGE_URL: $BADGE_URL"
 
           curl -s -o "wiki/${GITHUB_REPOSITORY}/${NAME}-badge.svg" "$BADGE_URL"
         done
 
     - name: Commit and Push to Wiki
-      if: ${{ inputs.push }}
+      if: ${{ inputs.push == 'true' }}
       shell: bash
       run: |
         cd wiki

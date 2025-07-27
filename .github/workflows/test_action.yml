@@ -27,17 +27,6 @@ jobs:
             failure
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-  comment-on-pr:
-    needs: generate-badge
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - name: Clone wiki
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.wiki.git" wiki
-
       - name: Update or add PR comment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -46,8 +35,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          PREFIX="https://github.com/${REPO}/wiki/"
           BADGE_DIR="wiki/${REPO}"
+          PREFIX="https://github.com/${REPO}/${BADGE_DIR}/"
 
           COMMENT=""
 
@@ -55,7 +44,7 @@ jobs:
             for f in "$BADGE_DIR"/*.svg; do
               [ -e "$f" ] || continue
               FILE=$(basename "$f")
-              COMMENT+="![](${PREFIX}${FILE})\n"
+              COMMENT+="[![](${PREFIX}${FILE})]() "
             done
           fi
 
