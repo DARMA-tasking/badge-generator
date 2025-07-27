@@ -46,7 +46,7 @@ runs:
         echo $SANITIZED_NAME
         BADGE_FILENAME="${SANITIZED_NAME}-badge.svg"
 
-        ENCODED_NAME=$(echo "${{ inputs.name }}" | sed -e 's/ /%20/g' -e 's/-/_/g')
+        ENCODED_NAME=$(echo "${{ inputs.name }}" | sed -e 's/ /%20/g' -e 's/-/%2D/g')
         BADGE_URL="https://img.shields.io/badge/${ENCODED_NAME}-${{ inputs.result }}-${{ env.COLOR }}.svg"
         echo $BADGE_URL
 
