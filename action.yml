@@ -4,11 +4,11 @@ author: 'Darma-tasking'
 
 # Define the inputs the action will accept
 inputs:
-  name:
-    description: 'The label for the badge (e.g., the build target or job name). Should be URL-friendly.'
+  names:
+    description: 'The labels for the badges (e.g., matrix item).'
     required: true
-  result:
-    description: 'The result of a previous step (e.g., success, failure, cancelled).'
+  results:
+    description: 'The results of build step (success, failure or cancelled).'
     required: true
   github_token:
     description: 'GitHub token with permissions to write to the wiki.'
@@ -68,7 +68,8 @@ runs:
         # Commit only if there are changes to prevent empty commits
         if ! git diff --staged --quiet; then
           git commit -m "Update badge for: ${{ inputs.name }}"
-          git push
+          git fetch && git rebase origin/master
+          git push --force-with-lease
           echo "Badge updated and pushed to the wiki."
         else
           echo "No changes to the badge. Commit skipped."
