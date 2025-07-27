@@ -14,7 +14,6 @@ inputs:
     description: 'GitHub token with permissions to write to the wiki.'
     required: true
 
-
 # Define the execution logic for the action
 runs:
   using: 'composite'
@@ -52,7 +51,8 @@ runs:
         echo "BADGE_URL: $BADGE_URL"
 
         # Download the badge using curl
-        curl -s -o "wiki/${{ inputs.name }}-badge.svg" "${BADGE_URL}"
+        mkdir -p wiki/${GITHUB_REPOSITORY}
+        curl -s -o "wiki/${GITHUB_REPOSITORY}/${{ inputs.name }}-badge.svg" "${BADGE_URL}"
 
     - name: Commit and Push to Wiki
       shell: bash
