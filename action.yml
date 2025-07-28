@@ -13,9 +13,6 @@ inputs:
   github_token:
     description: 'GitHub token with permissions to write to the wiki.'
     required: true
-  push:
-    description: 'Whether to push to wiki repository or not'
-    default: true
 
 # Define the execution logic for the action
 runs:
@@ -58,7 +55,6 @@ runs:
         done
 
     - name: Commit and Push to Wiki
-      if: ${{ inputs.push == 'true' }}
       shell: bash
       run: |
         cd wiki

@@ -12,7 +12,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Generate build badge
-        if: always()
         uses: DARMA-tasking/badge-generator@1-initial-version
         with:
           names: |
