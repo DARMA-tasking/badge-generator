@@ -28,47 +28,15 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update or add PR comment
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR:       ${{ github.event.pull_request.number }}
-          REPO:     ${{ github.repository }}
-        run: |
-          set -euo pipefail
-
-          BADGE_DIR="wiki/${REPO}"
-          PREFIX="https://github.com/${REPO}/${BADGE_DIR}/"
-
-          COMMENT=""
-
-          if [ -d "$BADGE_DIR" ]; then
-            for f in "$BADGE_DIR"/*.svg; do
-              [ -e "$f" ] || continue
-              FILE=$(basename "$f")
-              COMMENT+="[![](${PREFIX}${FILE})]() "
-            done
-          fi
-
-          COMMENT+="<!-- BadgeGeneratorComment -->"
-
-          # escape newlines for JSON
-          JSON_BODY=$(printf '%s' "$COMMENT" | jq -Rs .)
-
-          COMMENTS=$(curl -s -H "Authorization: token $GH_TOKEN" \
-                           -H "Accept: application/vnd.github.v3+json" \
-                           "https://api.github.com/repos/${REPO}/issues/${PR}/comments")
-
-          ID=$(echo "$COMMENTS" | jq -r '.[] | select(.body|contains("<!-- BadgeGeneratorComment -->")) | .id')
-
-          if [ -n "$ID" ]; then
-            curl -s -X PATCH \
-                 -H "Authorization: token $GH_TOKEN" \
-                 -H "Accept: application/vnd.github.v3+json" \
-                 -d "{\"body\":$JSON_BODY}" \
-                 "https://api.github.com/repos/${REPO}/issues/comments/${ID}"
-          else
-            curl -s -X POST \
-                 -H "Authorization: token $GH_TOKEN" \
-                 -H "Accept: application/vnd.github.v3+json" \
-                 -d "{\"body\":$JSON_BODY}" \
-                 "https://api.github.com/repos/${REPO}/issues/${PR}/comments"
-          fi
+        uses: DARMA-tasking/comment-on-pr@master
+        with:
+          repo_owner: ${{ github.event.repository.owner.login }}
+          repo_name: ${{ github.event.repository.name }}
+          pr_number: ${{ github.event.pull_request.number }}
+          comment_title: "Generated badges"
+          comment_content: |
+            [![](https://github.com/DARMA-tasking/badge-generator/wiki/DARMA-tasking/badge-generator/vt-build-amd64-alpine-3-16-clang-cpp-badge.svg)]()
+            [![](https://github.com/DARMA-tasking/badge-generator/wiki/DARMA-tasking/badge-generator/vt-build-amd64-ubuntu-20-04-gcc-9-cuda-12-2-0-cpp-badge.svg)]()
+            [![](https://github.com/DARMA-tasking/badge-generator/wiki/DARMA-tasking/badge-generator/vt-build-amd64-ubuntu-20-04-gcc-10-openmpi-cpp-spack-badge.svg)]()
+            [![](https://github.com/DARMA-tasking/badge-generator/wiki/DARMA-tasking/badge-generator/vt-build-amd64-ubuntu-22-04-gcc-12-cpp-badge.svg)]()
+          github_token: ${{ secrets.GITHUB_TOKEN }}
