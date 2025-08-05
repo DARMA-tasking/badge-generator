@@ -1,0 +1,41 @@
+name: Generate Badges
+
+on:
+  pull_request:
+
+jobs:
+  generate-badge:
+    runs-on: ubuntu-latest
+    name: Generate Badges
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate build badge
+        uses: DARMA-tasking/badge-generator@1-initial-version
+        with:
+          names: |
+            vt-build-amd64-alpine-3-16-clang-cpp
+            vt-build-amd64-ubuntu-20-04-gcc-9-cuda-12-2-0-cpp
+            vt-build-amd64-ubuntu-20-04-gcc-10-openmpi-cpp-spack
+            vt-build-amd64-ubuntu-22-04-gcc-12-cpp
+          results: |
+            success
+            cancelled
+            failure
+            failure
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update or add PR comment
+        uses: DARMA-tasking/comment-on-pr@master
+        with:
+          repo_owner: ${{ github.event.repository.owner.login }}
+          repo_name: ${{ github.event.repository.name }}
+          pr_number: ${{ github.event.pull_request.number }}
+          comment_title: "Generated badges"
+          comment_content: |
+            [![](https://github.com/DARMA-tasking/badge-generator/wiki/DARMA-tasking/badge-generator/vt-build-amd64-alpine-3-16-clang-cpp-badge.svg)]()
+            [![](https://github.com/DARMA-tasking/badge-generator/wiki/DARMA-tasking/badge-generator/vt-build-amd64-ubuntu-20-04-gcc-9-cuda-12-2-0-cpp-badge.svg)]()
+            [![](https://github.com/DARMA-tasking/badge-generator/wiki/DARMA-tasking/badge-generator/vt-build-amd64-ubuntu-20-04-gcc-10-openmpi-cpp-spack-badge.svg)]()
+            [![](https://github.com/DARMA-tasking/badge-generator/wiki/DARMA-tasking/badge-generator/vt-build-amd64-ubuntu-22-04-gcc-12-cpp-badge.svg)]()
+          github_token: ${{ secrets.GITHUB_TOKEN }}

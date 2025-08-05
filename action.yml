@@ -1,0 +1,76 @@
+name: 'Generate and Commit Badge to Wiki'
+description: 'Generates a status badge using shields.io and commits it to the repository wiki.'
+author: 'Darma-tasking'
+
+# Define the inputs the action will accept
+inputs:
+  names:
+    description: 'The labels for the badges (e.g., matrix item).'
+    required: true
+  results:
+    description: 'The results of build step (success, failure or cancelled).'
+    required: true
+  github_token:
+    description: 'GitHub token with permissions to write to the wiki.'
+    required: true
+
+# Define the execution logic for the action
+runs:
+  using: 'composite'
+  steps:
+    - name: Clone Wiki Repository
+      shell: bash
+      run: |
+        git clone https://x-access-token:${{ inputs.github_token }}@github.com/DARMA-tasking/badge-generator.wiki.git wiki
+
+    - name: Generate and Save Badge
+      shell: bash
+      run: |
+        set -euo pipefail
+        readarray -t NAMES   < <(printf '%s\n' "${{ inputs.names }}"   | sed '/^[[:space:]]*$/d')
+        readarray -t RESULTS < <(printf '%s\n' "${{ inputs.results }}" | sed '/^[[:space:]]*$/d')
+
+
+        [ "${#NAMES[@]}" -eq "${#RESULTS[@]}" ] || { echo "names and results lengths differ" >&2; exit 1; }
+
+        mkdir -p "wiki/${GITHUB_REPOSITORY}"
+
+        for i in "${!NAMES[@]}"; do
+          NAME=${NAMES[$i]}
+          RESULT=${RESULTS[$i]}
+
+          case "$RESULT" in
+            success)   COLOR=green ;;
+            failure)   COLOR=red   ;;
+            cancelled) COLOR=blue  ;;
+            *)         COLOR=blue  ;;
+          esac
+
+          ENCODED_NAME=$(echo "$NAME" | sed 's/-/--/g')
+          echo "NAME: $NAME"
+          BADGE_URL="https://img.shields.io/badge/${ENCODED_NAME}-${RESULT}-${COLOR}.svg"
+          echo "BADGE_URL: $BADGE_URL"
+
+          curl -s -o "wiki/${GITHUB_REPOSITORY}/${NAME}-badge.svg" "$BADGE_URL"
+        done
+
+    - name: Commit and Push to Wiki
+      shell: bash
+      run: |
+        cd wiki
+
+        # Configure git user for the commit
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+        git add .
+
+        # Commit only if there are changes to prevent empty commits
+        if ! git diff --staged --quiet; then
+          git commit -m "Update badge for: ${{ inputs.name }}"
+          git fetch && git rebase origin/master
+          git push --force-with-lease
+          echo "Badge updated and pushed to the wiki."
+        else
+          echo "No changes to the badge. Commit skipped."
+        fi
